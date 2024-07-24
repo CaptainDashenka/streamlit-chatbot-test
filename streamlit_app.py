@@ -1,38 +1,26 @@
 import streamlit as st
 import openai
-from llama_index.core import VectorStoreIndex, Settings, SimpleDirectoryReader
-from llama_index.llms.openai import OpenAI as LlmOpenAi
+from llama_index.llms.openai import OpenAI
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
 
-
-# Show title and description.
-st.title("💬 LLM RAG Chatbot")
-st.write(
-    "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
-    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
-    "You can also learn how to build this app step by step by [following our tutorial](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)."
-)
-
-# Ask user for their OpenAI API key via `st.text_input`.
-# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
+st.set_page_config(page_title="Chat with the Streamlit docs, powered by LlamaIndex", page_icon="🦙", layout="centered", initial_sidebar_state="auto", menu_items=None)
 openai.api_key = st.secrets["OpenAi_Api_key"]
+st.title("Chat with the Streamlit docs, powered by LlamaIndex 💬🦙")
+st.info("Check out the full tutorial to build this app in our [blog post](https://blog.streamlit.io/build-a-chatbot-with-custom-data-sources-powered-by-llamaindex/)", icon="📃")
 
-# Create a session state variable to store the chat messages. This ensures that the
-# messages persist across reruns.
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-
-# Display the existing chat messages via `st.chat_message`.
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+if "messages" not in st.session_state.keys():  # Initialize the chat messages history
+    st.session_state.messages = [
+        {
+            "role": "assistant",
+            "content": "Ask me a question about Streamlit's open-source Python library!",
+        }
+    ]
 
 @st.cache_resource(show_spinner=False)
 def load_data():
     reader = SimpleDirectoryReader(input_dir="./data", recursive=True)
     docs = reader.load_data()
-    Settings.llm = LlmOpenAi(
+    Settings.llm = OpenAI(
         model="gpt-3.5-turbo",
         temperature=0.2,
         system_prompt="""You are an expert on the Streamlit Python library and your job is to answer technical questions. 
@@ -44,29 +32,23 @@ def load_data():
 
 index = load_data()
 
-chat_engine = index.as_chat_engine(chat_mode="condense_question", verbose=True)
-
-# Create a chat input field to allow the user to enter a message. This will display
-# automatically at the bottom of the page.
-if prompt := st.chat_input("What is up?"):
-
-    # Store and display the current prompt.
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    # Generate a response using the OpenAI API.
-    stream = chat_engine.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": m["role"], "content": m["content"]}
-            for m in st.session_state.messages
-        ],
-        stream=True,
+if "chat_engine" not in st.session_state.keys():  # Initialize the chat engine
+    st.session_state.chat_engine = index.as_chat_engine(
+        chat_mode="condense_question", verbose=True, streaming=True
     )
 
-    # Stream the response to the chat using `st.write_stream`, then store it in 
-    # session state.
+if prompt := st.chat_input("Ask a question"):  # Prompt for user input and save to chat history
+    st.session_state.messages.append({"role": "user", "content": prompt})
+
+for message in st.session_state.messages:  # Write message history to UI
+    with st.chat_message(message["role"]):
+        st.write(message["content"])
+
+# If last message is not from assistant, generate a new response
+if st.session_state.messages[-1]["role"] != "assistant":
     with st.chat_message("assistant"):
-        response = st.write_stream(stream)
-    st.session_state.messages.append({"role": "assistant", "content": response})
+        response_stream = st.session_state.chat_engine.stream_chat(prompt)
+        st.write_stream(response_stream.response_gen)
+        message = {"role": "assistant", "content": response_stream.response}
+        # Add response to message history
+        st.session_state.messages.append(message)
