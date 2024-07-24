@@ -1,8 +1,12 @@
 import streamlit as st
-from openai import OpenAI
+import openai
+from llama_index import VectorStoreIndex, ServiceContext, Document
+from llama_index.llms import OpenAI
+from llama_index import SimpleDirectoryReader
+
 
 # Show title and description.
-st.title("💬 Chatbot")
+st.title("💬 LLM RAG Chatbot")
 st.write(
     "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
     "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
@@ -15,17 +19,31 @@ st.write(
 openai_api_key = st.secrets["OpenAi_Api_key"]
 
 # Create an OpenAI client.
-client = OpenAI(api_key=openai_api_key)
+client = openai(api_key=openai_api_key)
 
 # Create a session state variable to store the chat messages. This ensures that the
 # messages persist across reruns.
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+
 # Display the existing chat messages via `st.chat_message`.
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+
+@st.cache_resource(show_spinner=False)
+def load_data():
+    with st.spinner(text="Loading and indexing the Streamlit docs – hang tight! This should take 1-2 minutes."):
+        reader = SimpleDirectoryReader(input_dir="./data", recursive=True)
+        docs = reader.load_data()
+        service_context = ServiceContext.from_defaults(llm=OpenAI(model="gpt-3.5-turbo", temperature=0.5, system_prompt="You are an expert on the Streamlit Python library and your job is to answer technical questions. Assume that all questions are related to the Streamlit Python library. Keep your answers technical and based on facts – do not hallucinate features."))
+        index = VectorStoreIndex.from_documents(docs, service_context=service_context)
+        return index
+
+index = load_data()
+
+chat_engine = index.as_chat_engine(chat_mode="condense_question", verbose=True)
 
 # Create a chat input field to allow the user to enter a message. This will display
 # automatically at the bottom of the page.
@@ -37,7 +55,7 @@ if prompt := st.chat_input("What is up?"):
         st.markdown(prompt)
 
     # Generate a response using the OpenAI API.
-    stream = client.chat.completions.create(
+    stream = chat_engine.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": m["role"], "content": m["content"]}
