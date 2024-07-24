@@ -1,7 +1,7 @@
 import streamlit as st
-import openai
+import OpenAI
 from llama_index.core import VectorStoreIndex, Settings, SimpleDirectoryReader
-from llama_index.llms.openai import OpenAI
+from llama_index.llms.openai import OpenAI as LlmOpenAi
 
 
 # Show title and description.
@@ -18,7 +18,7 @@ st.write(
 openai_api_key = st.secrets["OpenAi_Api_key"]
 
 # Create an OpenAI client.
-client = openai(api_key=openai_api_key)
+client = OpenAI(api_key=openai_api_key)
 
 # Create a session state variable to store the chat messages. This ensures that the
 # messages persist across reruns.
@@ -35,7 +35,7 @@ for message in st.session_state.messages:
 def load_data():
     reader = SimpleDirectoryReader(input_dir="./data", recursive=True)
     docs = reader.load_data()
-    Settings.llm = OpenAI(
+    Settings.llm = LlmOpenAi(
         model="gpt-3.5-turbo",
         temperature=0.2,
         system_prompt="""You are an expert on the Streamlit Python library and your job is to answer technical questions. 
