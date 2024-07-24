@@ -1,5 +1,5 @@
 import streamlit as st
-import OpenAI
+import openai
 from llama_index.core import VectorStoreIndex, Settings, SimpleDirectoryReader
 from llama_index.llms.openai import OpenAI as LlmOpenAi
 
@@ -18,7 +18,7 @@ st.write(
 openai_api_key = st.secrets["OpenAi_Api_key"]
 
 # Create an OpenAI client.
-client = OpenAI(api_key=openai_api_key)
+client = openai(api_key=openai_api_key)
 
 # Create a session state variable to store the chat messages. This ensures that the
 # messages persist across reruns.
