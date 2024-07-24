@@ -15,10 +15,7 @@ st.write(
 # Ask user for their OpenAI API key via `st.text_input`.
 # Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
 # via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-openai_api_key = st.secrets["OpenAi_Api_key"]
-
-# Create an OpenAI client.
-client = openai(api_key=openai_api_key)
+openai.api_key = st.secrets["OpenAi_Api_key"]
 
 # Create a session state variable to store the chat messages. This ensures that the
 # messages persist across reruns.
